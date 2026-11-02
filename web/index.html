@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video Analysis</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/sections.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="#top">Video Analysis<span>.</span></a>
+      <nav class="nav" id="nav" aria-label="Sections"></nav>
+      <label class="select"><span>Results</span><select id="results-select"></select></label>
+    </div>
+  </header>
+
+  <main class="wrap" id="top">
+    <section class="hero">
+      <p class="eyebrow">Intelligent video analysis</p>
+      <h1>One video, five ways of <em>seeing</em> it.</h1>
+      <p class="lede">Scene boundaries, key frames, motion, tracked objects and a short summary, all tied to a single
+        timeline. Press play, or drag across the timeline to move through the video.</p>
+    </section>
+
+    <section class="control-panel" id="pipeline-controls">
+      <div class="control-heading">
+        <div>
+          <p class="eyebrow">Workspace</p>
+          <h2>Analyse a video</h2>
+        </div>
+        <span class="mono" id="pipeline-status">Ready</span>
+      </div>
+
+      <div class="control-grid">
+        <label class="control-field">
+          <span>Upload video</span>
+          <input type="file" id="video-upload" accept=".mp4,.mov,.avi,.mkv,.webm,video/*">
+        </label>
+
+        <label class="control-field">
+          <span>Or choose an uploaded video</span>
+          <select id="video-select">
+            <option value="">No videos uploaded</option>
+          </select>
+        </label>
+      </div>
+
+      <details class="settings">
+        <summary>Pipeline settings</summary>
+
+        <div class="settings-grid">
+          <label class="control-field">
+            <span>Scene cut threshold</span>
+            <input id="setting-threshold" type="number" min="10" max="50" step="1" value="27">
+          </label>
+
+          <label class="control-field">
+            <span>Minimum scene length (seconds)</span>
+            <input id="setting-min-length" type="number" min="0.5" max="5" step="0.5" value="1">
+          </label>
+
+          <label class="control-field">
+            <span>Keyframe sampling step (seconds)</span>
+            <input id="setting-keyframe-step" type="number" min="0.25" max="2" step="0.25" value="0.5">
+          </label>
+
+          <label class="control-field">
+            <span>YOLO model</span>
+            <select id="setting-model">
+              <option value="yolo11n.pt">YOLO11 Nano</option>
+              <option value="yolo11s.pt" selected>YOLO11 Small</option>
+              <option value="yolo11m.pt">YOLO11 Medium</option>
+            </select>
+          </label>
+
+          <label class="control-field">
+            <span>Tracking frame stride</span>
+            <input id="setting-stride" type="number" min="1" max="6" step="1" value="2">
+          </label>
+
+          <label class="control-field">
+            <span>Detection confidence</span>
+            <input id="setting-confidence" type="number" min="0.1" max="0.8" step="0.05" value="0.3">
+          </label>
+
+          <label class="control-field">
+            <span>Summary length</span>
+            <select id="setting-summary">
+              <option value="auto" selected>Automatic</option>
+              <option value="10">10 seconds</option>
+              <option value="20">20 seconds</option>
+              <option value="30">30 seconds</option>
+              <option value="45">45 seconds</option>
+              <option value="60">60 seconds</option>
+              <option value="90">90 seconds</option>
+              <option value="120">120 seconds</option>
+            </select>
+          </label>
+        </div>
+      </details>
+
+      <div class="pipeline-actions">
+        <button id="run-pipeline" class="run-button" type="button">
+          Run full analysis
+        </button>
+        <span class="mono" id="upload-status">MP4, MOV, AVI, MKV</span>
+      </div>
+
+      <div id="pipeline-progress" class="pipeline-progress" hidden>
+        <div class="progress-track">
+          <div id="progress-fill"></div>
+        </div>
+        <div class="progress-meta">
+          <span id="progress-message">Preparing...</span>
+          <span id="progress-value">0%</span>
+        </div>
+        <pre id="pipeline-logs"></pre>
+      </div>
+    </section>
+
+    <section id="empty-state" class="notice" hidden>
+      <h2>No analysis results yet</h2>
+      <p>Upload a video above and run the analysis pipeline to get started.</p>
+    </section>
+
+    <section class="stage" id="stage">
+      <div class="player">
+        <video id="video" controls preload="metadata" playsinline></video>
+        <div class="player-bar">
+          <div class="seg" id="source-seg">
+            <button type="button" data-src="original" class="on">Original</button>
+            <button type="button" data-src="tracked">Tracked</button>
+          </div>
+          <span class="mono" id="player-meta"></span>
+        </div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+    </section>
+
+    <section class="block" id="overview" hidden>
+      <header class="sec-head">
+        <span class="idx">00</span>
+        <h2>At a glance</h2>
+        <p>Headline numbers from the pipeline run. Everything on this page is read from the files in the selected
+          results folder.</p>
+      </header>
+      <div class="metrics" id="metrics"></div>
+    </section>
+
+    <section class="block" id="scenes" hidden>
+      <header class="sec-head">
+        <span class="idx">01</span>
+        <h2>Scene boundaries</h2>
+        <p>Where the shot changes, found from sudden changes in colour content between neighbouring frames.</p>
+      </header>
+      <div class="sec-body"></div>
+    </section>
+
+    <section class="block" id="keyframes" hidden>
+      <header class="sec-head">
+        <span class="idx">02</span>
+        <h2>Important frames</h2>
+        <p>The sharpest and most representative frames of each scene, one to three per scene.</p>
+      </header>
+      <div class="sec-body"></div>
+    </section>
+
+    <section class="block" id="motion" hidden>
+      <header class="sec-head">
+        <span class="idx">03</span>
+        <h2>Motion map</h2>
+        <p>Object motion with the camera's own movement subtracted, so the hot spots are things that actually moved.</p>
+      </header>
+      <div class="sec-body"></div>
+    </section>
+
+    <section class="block" id="tracking" hidden>
+      <header class="sec-head">
+        <span class="idx">04</span>
+        <h2>Tracked objects</h2>
+        <p>People, vehicles and animals followed through time. Counts are track IDs, not distinct individuals.</p>
+      </header>
+      <div class="sec-body"></div>
+    </section>
+
+    <section class="block" id="summary" hidden>
+      <header class="sec-head">
+        <span class="idx">05</span>
+        <h2>Short summary</h2>
+        <p>The highest-scoring moments, at least one per scene when the length allows, joined in time order.</p>
+      </header>
+      <div class="sec-body"></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span>Built with OpenCV, PySceneDetect, YOLO11 and ByteTrack.</span>
+      <span class="mono" id="foot-meta"></span>
+    </div>
+  </footer>
+
+  <script type="module" src="js/controls.js"></script>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
